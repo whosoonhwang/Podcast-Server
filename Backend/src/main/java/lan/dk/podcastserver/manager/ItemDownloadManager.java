@@ -7,6 +7,7 @@ import lan.dk.podcastserver.entity.Item;
 import lan.dk.podcastserver.entity.Podcast;
 import lan.dk.podcastserver.entity.Status;
 import lan.dk.podcastserver.manager.worker.downloader.Downloader;
+import lan.dk.podcastserver.manager.worker.downloader.model.DownloadingItem;
 import lan.dk.podcastserver.manager.worker.selector.DownloaderSelector;
 import lan.dk.podcastserver.manager.worker.selector.ExtractorSelector;
 import lan.dk.podcastserver.repository.ItemRepository;
@@ -211,13 +212,15 @@ public class ItemDownloadManager {
     }
 
     private void launchWithNewWorkerFrom(Item item) {
-        Downloader worker = this.extractorSelector.of(item.getUrl())
-                .extract(item)
-                .apply((i, url) -> downloaderSelector.of(url).setItem(i))
-                .setItemDownloadManager(this);
+        DownloadingItem downloadingItem = this.extractorSelector.of(item.getUrl()).extract(item);
 
-        downloadingQueue = downloadingQueue.put(item, worker);
-        downloadExecutor.execute(worker);
+        Downloader downloader = downloadingItem.url()
+                .map(downloaderSelector::of)
+                .map(d -> d.setDownloadingItem(downloadingItem).setItemDownloadManager(this))
+                .getOrElseThrow(() -> new RuntimeException("Error during selection of downloader"));
+
+        downloadingQueue = downloadingQueue.put(item, downloader);
+        downloadExecutor.execute(downloader);
     }
 
     public void resetDownload(Item item) {

@@ -48,7 +48,12 @@ public class HTTPDownloader extends AbstractDownloader {
         log.debug("Download");
 
         try {
-            info = wGetFactory.newDownloadInfo(urlService.getRealURL(getItemUrl(item)));
+
+            info = this.downloadingItem.url()
+                    .map(urlService::getRealURL)
+                    .map(wGetFactory::newDownloadInfo)
+                    .getOrElseThrow(() -> new RuntimeException("Error during creation of download of " + this.downloadingItem.getItem().getTitle()));
+
             info.extract(stopDownloading, itemSynchronisation);
             target = getTargetFile(item);
             WGet w = wGetFactory.newWGet(info, target.toFile());
@@ -61,8 +66,6 @@ public class HTTPDownloader extends AbstractDownloader {
                 .forEach(Throwable::printStackTrace);
 
             throw new RuntimeException(e);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
         } catch (DownloadInterruptedError e) {
             log.debug("Arrêt du téléchargement");
         }
